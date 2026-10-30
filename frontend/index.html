@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>OnScreen · Capture workspace</title>
+  <script src="./theme.js"></script>
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./workspace-ui.css">
+  <script type="module" src="./workspace-ui.js"></script>
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="OnScreen početna"><span class="brand-icon" aria-hidden="true">▣</span><span>OnScreen<small>CAPTURE WORKSPACE</small></span></a>
+    <div class="top-status"><span id="mode-badge" class="badge">DEMO</span><span id="connection-status" role="status">Lokalni workspace</span></div>
+    <nav class="header-actions" aria-label="Workspace navigacija">
+      <button id="theme-toggle" class="theme-button" type="button" aria-label="Dark mode" aria-pressed="false">Dark mode</button>
+      <a href="./dashboard.html" class="button secondary">Dashboard</a>
+      <button id="open-project" class="button secondary">Otvori projekat</button>
+    </nav>
+  </header>
+
+  <main>
+    <div id="demo-notice" class="demo-notice">Demo režim · primeri nisu pravi dokumenti. Napredak se čuva samo u ovom browseru; Excel se ne menja.</div>
+    <section class="workspace-heading">
+      <div><p class="eyebrow">TVOJ RED ZA CAPTURE</p><h1>Spremno za sledeći capture<span class="accent">.</span></h1><p class="muted">Prikaži dokument. Proveri instrukcije. Fotografiši.</p></div>
+      <div class="batch-picker"><label for="batch-select">AKTIVNI BATCH</label><select id="batch-select" disabled></select></div>
+    </section>
+
+    <section class="equipment-filters" aria-label="Filteri capture opreme">
+      <label for="capture-device-select">Capture uređaj<select id="capture-device-select" disabled><option value="">Svi uređaji</option></select></label>
+      <label for="replay-screen-select">Replay ekran<select id="replay-screen-select" disabled><option value="">Svi ekrani</option></select></label>
+      <button id="clear-filters" class="button secondary" disabled>Poništi filtere</button>
+    </section>
+    <div class="daily-report-bar"><div><strong>Današnji capture</strong><span>Broj završenih zadataka i vreme od prvog do poslednjeg, za sve batcheve projekta.</span></div><button id="copy-daily-report" class="button secondary" disabled>Kopiraj dnevni izveštaj</button></div>
+    <p id="daily-report-status" class="daily-report-status" role="status" aria-live="polite" hidden></p>
+    <section class="progress-card" aria-label="Napredak batch-a"><div><span class="status-dot"></span><strong id="batch-name">Učitavanje…</strong><span id="task-position" class="muted"></span></div><div class="progress-right"><span id="progress-label"></span><progress id="batch-progress" max="1" value="0" aria-label="Završeni zadaci"></progress></div></section>
+
+    <div id="error-banner" class="error-banner" role="alert" hidden><span id="error-message"></span><button id="retry" class="button secondary">Pokušaj ponovo</button></div>
+
+    <section id="capture-workspace" aria-label="Capture zadatak">
+      <div class="viewer-toolbar"><div><span class="tiny-label">SOURCE IMAGE</span><span id="image-name" class="filename">—</span></div><div class="zoom-controls" aria-label="Kontrole prikaza"><button id="zoom-out" class="icon-button" aria-label="Umanji sliku" title="Umanji (−)">−</button><output id="zoom-level">100%</output><button id="zoom-in" class="icon-button" aria-label="Uvećaj sliku" title="Uvećaj (+)">+</button><span class="separator"></span><button id="fit-image" class="text-button">Fit to screen</button><button id="fullscreen" class="icon-button" aria-label="Fullscreen prikaz" title="Fullscreen (F)">⛶</button></div></div>
+
+      <div id="viewer" class="viewer" tabindex="0" aria-label="Prikaz dokumenta. Točkić miša zumira; prevlačenje pomera sliku.">
+        <div id="image-layer" class="image-layer" hidden><img id="document-image" alt="" draggable="false"><div id="index-overlay" class="index-overlay" hidden><span id="overlay-value"></span></div></div>
+        <div id="viewer-message" class="viewer-message" role="status">Učitavanje slike…</div>
+        <div class="viewer-hint">Scroll za zoom <span>·</span> Prevuci za pomeranje</div>
+        <button id="exit-fullscreen" class="button fullscreen-exit" hidden>Zatvori fullscreen · Esc</button>
+      </div>
+
+      <section class="capture-details" aria-label="Instrukcije za fotografisanje">
+        <div class="detail"><span class="detail-label">POLOŽAJ TELEFONA</span><strong id="orientation" class="orientation">—</strong><small>Orijentacija capture telefona</small></div>
+        <div class="detail"><span class="detail-label">CAPTURE UREĐAJ</span><strong id="device-os">—</strong><small id="device-model">—</small></div>
+        <div class="detail"><span class="detail-label">DRŽAVA / DOKUMENT</span><strong id="country">—</strong><small id="document-type">—</small></div>
+        <div class="detail"><span class="detail-label">REPLAY EKRAN</span><strong id="replay-type">—</strong><small id="replay-model">—</small></div>
+      </section>
+
+      <footer class="action-bar"><div class="index-info"><span class="index-symbol">#</span><div><span class="detail-label">UNIQUE CAPTURE INDEX</span><strong id="capture-index">—</strong></div></div><div class="actions"><label class="index-size-control" for="index-size">Veličina indeksa <output id="index-size-value" for="index-size">100%</output><input id="index-size" type="range" min="50" max="200" step="10" value="100" disabled></label><button id="toggle-index" class="button secondary" aria-pressed="false" disabled>Show index</button><div class="next-group"><span id="save-status" role="status" aria-live="polite">Spremno za capture</span><button id="next-task" class="button primary" disabled>NEXT <span aria-hidden="true">→</span></button></div></div></footer>
+      <p class="bottom-hint">Show index uključuje oznaku preko iste slike. NEXT potvrđuje završen capture i čuva napredak.</p>
+    </section>
+
+    <section id="completed-panel" class="completed-panel" hidden><span class="complete-icon">✓</span><p class="eyebrow">NEMA PREOSTALIH ZADATAKA U IZBORU</p><h2 id="completed-title">Nema preostalih TO DO zadataka.</h2><p id="completed-description">Nema više zadataka sa statusom TO DO u ovom batch-u.</p><button id="choose-batch" class="button secondary">Izaberi drugi batch</button></section>
+  </main>
+
+  <dialog id="project-dialog"><form id="project-form"><div class="dialog-heading"><div><p class="eyebrow">LOKALNI PROJEKAT</p><h2>Otvori capture workspace</h2></div><button id="close-dialog" type="button" class="icon-button" aria-label="Zatvori">×</button></div><p class="muted">Unesi putanje na računaru na kojem radi backend. Browser sam ne otvara niti menja Excel.</p><label for="workbook-path">Excel fajl (.xlsx)</label><input id="workbook-path" placeholder="C:\CaptureData\input.xlsx" required><label for="image-root">Glavni folder sa batchevima</label><input id="image-root" placeholder="C:\CaptureData\images" required><label for="sheet-name">Naziv sheet-a <span class="muted">(opciono)</span></label><input id="sheet-name" placeholder="Prvi sheet"><p id="project-error" class="form-error" role="alert"></p><button id="connect-project" type="submit" class="button primary">Validiraj i otvori</button><button id="start-demo" type="button" class="button secondary">Isprobaj demo</button></form></dialog>
+</body>
+</html>
