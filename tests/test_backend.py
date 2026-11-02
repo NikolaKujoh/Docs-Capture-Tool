@@ -165,6 +165,18 @@ def test_document_folder_with_different_filename_and_ambiguity(dataset):
         project.close()
 
 
+def test_browse_returns_picked_path_and_reports_failure():
+    with TestClient(create_app()) as client:
+        assert client.post("/api/browse", json={"kind": "file"}).status_code == 403  # needs session token
+        client.headers["X-OnScreen-Token"] = client.get("/api/session").json()["token"]
+        assert client.post("/api/browse", json={"kind": "other"}).status_code == 422
+        with patch("onscreen.web.pick_path", return_value="/data/input.xlsx") as picker:
+            assert client.post("/api/browse", json={"kind": "file", "start": "/data"}).json() == {"path": "/data/input.xlsx"}
+            picker.assert_called_once_with("file", "/data")
+        with patch("onscreen.web.pick_path", side_effect=RuntimeError("no display")):
+            assert client.post("/api/browse", json={"kind": "folder"}).status_code == 409
+
+
 def test_swap_device_changes_only_remaining_rows(dataset):
     with TestClient(create_app()) as client:
         open_client(client, dataset)

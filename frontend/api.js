@@ -28,6 +28,7 @@ export class ApiClient {
   }
 
   async openProject(settings) { return settings ? this.request('project/open', settings) : (await this.session()).project; }
+  browse(kind, start) { return this.request('browse', { kind, start }); }
   getBatch(batch, filters = {}) {
     const query = new URLSearchParams(Object.entries(filters).filter(([, value]) => value));
     return this.request(`batches/${encodeURIComponent(batch)}/current${query.size ? '?' + query : ''}`);

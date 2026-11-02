@@ -243,6 +243,16 @@ $('project-form').addEventListener('submit', event => {
     sheet_name: $('sheet-name').value.trim() || null,
   }, false);
 });
+document.querySelectorAll('[data-browse]').forEach(button => button.addEventListener('click', async () => {
+  const input = $(button.dataset.browse);
+  button.disabled = true;
+  $('project-error').textContent = '';
+  try {
+    const { path } = await new ApiClient().browse(button.dataset.kind, input.value.trim());
+    if (path) input.value = path;
+  } catch (error) { $('project-error').textContent = error.message; }
+  finally { button.disabled = false; }
+}));
 document.addEventListener('keydown', event => {
   if (document.querySelector('dialog[open]') || /INPUT|SELECT|TEXTAREA/.test(event.target.tagName) || event.ctrlKey || event.metaKey || event.altKey || !state.ready || state.busy) return;
   if (event.key === '+' || event.key === '=') { event.preventDefault(); viewer.zoom(viewer.view.scale * 1.2); }
