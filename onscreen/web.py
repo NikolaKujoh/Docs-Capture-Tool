@@ -2,7 +2,8 @@ import logging
 import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
-from threading import RLock
+from threading import Lock, RLock
+from typing import Literal
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
@@ -24,6 +25,31 @@ class OpenProject(BaseModel):
     timezone: str = "Europe/Belgrade"
 
 
+class Browse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["file", "folder"]
+    start: str = ""
+
+
+def pick_path(kind, start=""):
+    """Native Windows picker on the backend machine (the browser can't see real paths). '' = cancelled."""
+    from tkinter import Tk, filedialog
+    root = Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+    try:
+        folder = Path(start).expanduser() if start else None
+        folder = folder if folder is None or folder.is_dir() else folder.parent
+        options = {"parent": root, **({"initialdir": str(folder)} if folder and folder.is_dir() else {})}
+        if kind == "file":
+            path = filedialog.askopenfilename(filetypes=[("Excel", "*.xlsx")], **options)
+        else:
+            path = filedialog.askdirectory(mustexist=True, **options)
+    finally:
+        root.destroy()
+    return str(Path(path)) if path else ""
+
+
 class Filters(BaseModel):
     model_config = ConfigDict(extra="forbid")
     capture_device: str = ""
@@ -39,6 +65,7 @@ class Complete(BaseModel):
 
 def create_app():
     guard = RLock()
+    picker = Lock()
     project = None
     token = secrets.token_urlsafe(32)
 
@@ -77,6 +104,18 @@ def create_app():
     @app.get("/api/session")
     def session():
         return {"token": token, "project": project.info() if project else None}
+
+    @app.post("/api/browse")
+    def browse(settings: Browse):
+        if not picker.acquire(blocking=False):
+            raise ProjectError("Prozor za izbor je već otvoren.", 409)
+        try:
+            return {"path": pick_path(settings.kind, settings.start)}
+        except Exception as error:
+            logging.getLogger(__name__).exception("Browse failed")
+            raise ProjectError("Izbor fajla nije dostupan. Unesi putanju ručno.", 409) from error
+        finally:
+            picker.release()
 
     @app.post("/api/project/open")
     def open_project(settings: OpenProject):
