@@ -164,3 +164,11 @@ Ako backend ne pošalje `filter_options`, dropdown filteri su onemogućeni.
 - NEXT zahteva učitanu sliku i backend potvrdu čuvanja.
 - Kolone `notes`, `trustx_image`, `instance_ID` frontend ne menja.
 - OCR i automatsko popunjavanje `trustx_image` nisu deo ovog MVP-a.
+
+## Zamena capture uređaja
+
+`POST /api/devices/swap` — `{batch, old_device, device_os, model, filters?}`.
+`old_device` je vrednost iz `filter_options.capture_devices`; `device_os` je
+`Android` ili `iOS`. Menja `device_os` i `operational_device_model` samo u
+preostalim TO DO redovima tog batch-a sa starim uređajem (DONE ostaje). Vraća
+isti format kao GET current. 409 ako nema takvih redova, 422 za nevalidan OS/model.

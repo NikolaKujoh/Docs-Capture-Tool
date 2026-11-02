@@ -1,5 +1,5 @@
 import { batchProgress, firstPending } from './core.js';
-import { equipmentOptions, matchesEquipment } from './equipment-filters.js';
+import { equipmentKey, equipmentOptions, matchesEquipment } from './equipment-filters.js';
 
 export class ApiClient {
   constructor(base = './api/') { this.base = base; this.token = null; }
@@ -33,6 +33,7 @@ export class ApiClient {
     return this.request(`batches/${encodeURIComponent(batch)}/current${query.size ? '?' + query : ''}`);
   }
   getCaptureRecords() { return this.request('reports/captures'); }
+  swapDevice(batch, oldDevice, deviceOs, model, filters = {}) { return this.request('devices/swap', { batch, old_device: oldDevice, device_os: deviceOs, model, ...(Object.values(filters).some(Boolean) ? { filters } : {}) }); }
   complete(task, filters = {}) { return this.request(`tasks/${encodeURIComponent(task.task_id)}/complete`, { batch: task.batch, revision: task.revision, ...(Object.values(filters).some(Boolean) ? { filters } : {}) }); }
 }
 
@@ -86,6 +87,14 @@ export class DemoClient {
     const rows = this.tasks.filter(task => matchesEquipment(task, filters));
     return { task: firstPending(rows, batch), progress: batchProgress(rows, batch),
       filter_options: equipmentOptions(this.tasks.filter(task => task.batch === batch)) };
+  }
+
+  async swapDevice(batch, oldDevice, deviceOs, model, filters = {}) {
+    // ponytail: demo swaps live in memory only, lost on reload.
+    const rows = this.tasks.filter(t => t.batch === batch && t.status === 'TO DO' && equipmentKey(t.device_os, t.operational_device_model) === oldDevice);
+    if (!rows.length) throw new Error('Nema preostalih TO DO zadataka za izabrani uređaj.');
+    for (const row of rows) { row.device_os = deviceOs; row.operational_device_model = model; }
+    return this.getBatch(batch, filters);
   }
 
   async complete(task, filters = {}) {

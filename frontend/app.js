@@ -25,6 +25,7 @@ function updateControls() {
   $('retry').disabled = state.busy;
   $('copy-daily-report').disabled = !state.client || state.busy || state.reporting;
   for (const id of ['capture-device-select', 'replay-screen-select']) $(id).disabled = state.busy || !state.client || !state.filterOptions;
+  $('swap-device').disabled = state.busy || !state.client || !state.filterOptions?.capture_devices?.length;
   $('clear-filters').disabled = state.busy || !Object.values(state.filters).some(Boolean);
 }
 
@@ -147,6 +148,23 @@ async function completeTask() {
   });
 }
 
+async function swapDevice(event) {
+  event.preventDefault();
+  const old = $('swap-old').value, os = $('swap-os').value, model = $('swap-model').value.trim();
+  const filters = { ...state.filters };
+  // Keep the capture filter pointing at the swapped device.
+  if (filters.capture_device === old) filters.capture_device = JSON.stringify([os, model]);
+  setBusy(true);
+  $('swap-error').textContent = '';
+  try {
+    const data = await state.client.swapDevice(state.batch, old, os, model, filters);
+    state.filters = filters;
+    renderBatch(data);
+    $('swap-dialog').close();
+  } catch (error) { $('swap-error').textContent = error.message; }
+  finally { setBusy(false); }
+}
+
 function toggleIndex() {
   if (!state.ready || state.busy) return;
   const visible = $('index-overlay').hidden;
@@ -202,6 +220,15 @@ for (const id of ['capture-device-select', 'replay-screen-select']) {
     replay_screen: $('replay-screen-select').value,
   }));
 }
+$('swap-device').addEventListener('click', () => {
+  $('swap-old').replaceChildren(...state.filterOptions.capture_devices.map(option => new Option(option.label, option.value)));
+  $('swap-old').value = state.filters.capture_device || $('swap-old').options[0].value;
+  $('swap-model').value = '';
+  $('swap-error').textContent = '';
+  $('swap-dialog').showModal();
+});
+$('close-swap').addEventListener('click', () => { if (!state.busy) $('swap-dialog').close(); });
+$('swap-form').addEventListener('submit', swapDevice);
 $('clear-filters').addEventListener('click', () => loadBatch(state.batch));
 $('choose-batch').addEventListener('click', () => $('batch-select').focus());
 $('retry').addEventListener('click', () => state.retry?.());
