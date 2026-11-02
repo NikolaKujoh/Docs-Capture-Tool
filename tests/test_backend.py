@@ -176,6 +176,9 @@ def test_swap_device_changes_only_remaining_rows(dataset):
         result = client.post("/api/devices/swap", json=body)
         assert result.status_code == 200, result.text
         assert result.json()["task"]["unique_capture_index"] == "002"
+        values = [option["value"] for option in result.json()["filter_options"]["capture_devices"]]
+        assert equipment_key("Android", "Pixel") not in values
+        assert equipment_key("iOS", "iPhone 15") in values
     sheet = load_workbook(dataset[0])["Capture"]
     assert [sheet[f"{c}2"].value for c in "FG"] == ["Android", "Pixel"]  # DONE row untouched
     assert [sheet[f"{c}4"].value for c in "FG"] == ["iOS", "iPhone 15"]  # TO DO row swapped

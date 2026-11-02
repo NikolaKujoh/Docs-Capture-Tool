@@ -72,6 +72,7 @@ class Project:
         self.file_lock = portalocker.Lock(str(self.path) + ".onscreen.lock", timeout=0)
         self.owns_lock = False
         self.workbook = None
+        self.swapped_out = set()
         try:
             if acquire_lock:
                 self.file_lock.acquire()
@@ -191,6 +192,7 @@ class Project:
             task["image_error"] = self.image_errors.get(task["task_id"])
         def options(kind, model):
             pairs = list(dict.fromkeys((text(row[kind]), text(row[model])) for row in all_rows))
+            pairs = [pair for pair in pairs if (batch, equipment_key(*pair)) not in self.swapped_out]
             return [{"value": equipment_key(*pair), "label": " · ".join(item for item in pair if item) or "Nepoznata oprema"} for pair in pairs]
         return {"task": task, "progress": {"total": len(rows), "done": sum(text(row["status"]).upper() == "DONE" for row in rows), "pending": len(pending)},
                 "filter_options": {"capture_devices": options("device_os", "operational_device_model"), "replay_screens": options("replay_device_type", "replay_device_model")}}
@@ -273,6 +275,9 @@ class Project:
                          for row in rows for key, value in (("device_os", device_os), ("operational_device_model", model))])
             for row in rows:
                 row["device_os"], row["operational_device_model"] = device_os, model
+            # The replaced device disappears from the options (kept until the project is reopened).
+            self.swapped_out.add((batch, equipment_key(*old)))
+            self.swapped_out.discard((batch, equipment_key(device_os, model)))
             LOG.info("Device swapped batch=%s rows=%d", batch, len(rows))
             return self.current(batch, filters)
 
