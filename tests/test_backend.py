@@ -163,3 +163,22 @@ def test_document_folder_with_different_filename_and_ambiguity(dataset):
         assert all("Više slika" in value for value in project.image_errors.values())
     finally:
         project.close()
+
+
+def test_swap_device_changes_only_remaining_rows(dataset):
+    with TestClient(create_app()) as client:
+        open_client(client, dataset)
+        task = client.get("/api/batches/batch_10/current").json()["task"]
+        client.post(f"/api/tasks/{task['task_id']}/complete", json={"batch": "batch_10", "revision": task["revision"]})
+        body = {"batch": "batch_10", "old_device": equipment_key("Android", "Pixel"), "device_os": "iOS", "model": "iPhone 15"}
+        assert client.post("/api/devices/swap", json={**body, "device_os": "Windows"}).status_code == 422
+        assert client.post("/api/devices/swap", json={**body, "old_device": equipment_key("Android", "Nope")}).status_code == 409
+        result = client.post("/api/devices/swap", json=body)
+        assert result.status_code == 200, result.text
+        assert result.json()["task"]["unique_capture_index"] == "002"
+        values = [option["value"] for option in result.json()["filter_options"]["capture_devices"]]
+        assert equipment_key("Android", "Pixel") not in values
+        assert equipment_key("iOS", "iPhone 15") in values
+    sheet = load_workbook(dataset[0])["Capture"]
+    assert [sheet[f"{c}2"].value for c in "FG"] == ["Android", "Pixel"]  # DONE row untouched
+    assert [sheet[f"{c}4"].value for c in "FG"] == ["iOS", "iPhone 15"]  # TO DO row swapped

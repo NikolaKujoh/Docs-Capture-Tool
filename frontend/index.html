@@ -32,6 +32,7 @@
     <section class="equipment-filters" aria-label="Filteri capture opreme">
       <label for="capture-device-select">Capture uređaj<select id="capture-device-select" disabled><option value="">Svi uređaji</option></select></label>
       <label for="replay-screen-select">Replay ekran<select id="replay-screen-select" disabled><option value="">Svi ekrani</option></select></label>
+      <button id="swap-device" class="button secondary" disabled>Zameni uređaj</button>
       <button id="clear-filters" class="button secondary" disabled>Poništi filtere</button>
     </section>
     <div class="daily-report-bar"><div><strong>Današnji capture</strong><span>Broj završenih zadataka i vreme od prvog do poslednjeg, za sve batcheve projekta.</span></div><button id="copy-daily-report" class="button secondary" disabled>Kopiraj dnevni izveštaj</button></div>
@@ -63,6 +64,8 @@
 
     <section id="completed-panel" class="completed-panel" hidden><span class="complete-icon">✓</span><p class="eyebrow">NEMA PREOSTALIH ZADATAKA U IZBORU</p><h2 id="completed-title">Nema preostalih TO DO zadataka.</h2><p id="completed-description">Nema više zadataka sa statusom TO DO u ovom batch-u.</p><button id="choose-batch" class="button secondary">Izaberi drugi batch</button></section>
   </main>
+
+  <dialog id="swap-dialog"><form id="swap-form"><div class="dialog-heading"><div><p class="eyebrow">CAPTURE UREĐAJ</p><h2>Zameni uređaj</h2></div><button id="close-swap" type="button" class="icon-button" aria-label="Zatvori">×</button></div><p class="muted">Menja uređaj u preostalim TO DO zadacima aktivnog batch-a. Završeni zadaci ostaju kakvi jesu.</p><label for="swap-old">Uređaj koji menjaš</label><select id="swap-old" required></select><label for="swap-os">OS novog uređaja</label><select id="swap-os" required><option value="Android">Android</option><option value="iOS">iOS</option></select><label for="swap-model">Model novog uređaja</label><input id="swap-model" placeholder="npr. Google Pixel 8a" required><p id="swap-error" class="form-error" role="alert"></p><button id="confirm-swap" type="submit" class="button primary">Zameni</button></form></dialog>
 
   <dialog id="project-dialog"><form id="project-form"><div class="dialog-heading"><div><p class="eyebrow">LOKALNI PROJEKAT</p><h2>Otvori capture workspace</h2></div><button id="close-dialog" type="button" class="icon-button" aria-label="Zatvori">×</button></div><p class="muted">Unesi putanje na računaru na kojem radi backend. Browser sam ne otvara niti menja Excel.</p><label for="workbook-path">Excel fajl (.xlsx)</label><input id="workbook-path" placeholder="C:\CaptureData\input.xlsx" required><label for="image-root">Glavni folder sa batchevima</label><input id="image-root" placeholder="C:\CaptureData\images" required><label for="sheet-name">Naziv sheet-a <span class="muted">(opciono)</span></label><input id="sheet-name" placeholder="Prvi sheet"><p id="project-error" class="form-error" role="alert"></p><button id="connect-project" type="submit" class="button primary">Validiraj i otvori</button><button id="start-demo" type="button" class="button secondary">Isprobaj demo</button></form></dialog>
 </body>

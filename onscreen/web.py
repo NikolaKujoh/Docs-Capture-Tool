@@ -37,6 +37,15 @@ class Complete(BaseModel):
     filters: Filters = Field(default_factory=Filters)
 
 
+class SwapDevice(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    batch: str
+    old_device: str
+    device_os: str
+    model: str
+    filters: Filters = Field(default_factory=Filters)
+
+
 def create_app():
     guard = RLock()
     project = None
@@ -111,6 +120,11 @@ def create_app():
     def complete(task_id: str, settings: Complete):
         with guard:
             return active().complete(task_id, settings.batch, settings.revision, settings.filters.model_dump())
+
+    @app.post("/api/devices/swap")
+    def swap_device(settings: SwapDevice):
+        with guard:
+            return active().swap_device(settings.batch, settings.old_device, settings.device_os, settings.model, settings.filters.model_dump())
 
     @app.get("/api/images/{image_id}")
     def image(image_id: str):
