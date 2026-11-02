@@ -72,6 +72,7 @@ class Project:
         self.file_lock = portalocker.Lock(str(self.path) + ".onscreen.lock", timeout=0)
         self.owns_lock = False
         self.workbook = None
+        self.swapped_out = set()
         try:
             if acquire_lock:
                 self.file_lock.acquire()
@@ -191,6 +192,7 @@ class Project:
             task["image_error"] = self.image_errors.get(task["task_id"])
         def options(kind, model):
             pairs = list(dict.fromkeys((text(row[kind]), text(row[model])) for row in all_rows))
+            pairs = [pair for pair in pairs if (batch, equipment_key(*pair)) not in self.swapped_out]
             return [{"value": equipment_key(*pair), "label": " · ".join(item for item in pair if item) or "Nepoznata oprema"} for pair in pairs]
         return {"task": task, "progress": {"total": len(rows), "done": sum(text(row["status"]).upper() == "DONE" for row in rows), "pending": len(pending)},
                 "filter_options": {"capture_devices": options("device_os", "operational_device_model"), "replay_screens": options("replay_device_type", "replay_device_model")}}
@@ -218,35 +220,65 @@ class Project:
             if text(row["status"]).upper() != "TO DO":
                 raise ProjectError("Zadatak više nema status TO DO.", 409)
             self.image(task_id)
-            if self.path.with_name("~$" + self.path.name).exists():
-                raise ProjectError("Excel je otvoren. Zatvori ga i pokušaj ponovo.", 409)
-            status_cell = self.sheet.cell(row["_row"], self.columns["status"])
-            time_cell = self.sheet.cell(row["_row"], self.columns["timestamp"])
-            previous = (status_cell.value, time_cell.value)
             timestamp = datetime.now(self.zone).isoformat(timespec="seconds")
-            temporary = None
-            try:
-                status_cell.value, time_cell.value = "DONE", timestamp
-                fd, temporary = tempfile.mkstemp(suffix=".xlsx", prefix=".onscreen-", dir=self.path.parent)
-                os.close(fd)
-                self.workbook.save(temporary)
-                with open(temporary, "rb") as stream:
-                    os.fsync(stream.fileno())
-                self.check_revision()
-                new_revision = digest(Path(temporary))
-                os.replace(temporary, self.path)
-                self.revision = new_revision
-            except Exception as error:
-                status_cell.value, time_cell.value = previous
-                if isinstance(error, ProjectError):
-                    raise
-                LOG.exception("Workbook save failed")
-                raise ProjectError("Excel nije sačuvan. Zatvori Excel, proveri dozvole i pokušaj ponovo.", 409) from error
-            finally:
-                if temporary and Path(temporary).exists():
-                    Path(temporary).unlink()
+            self._write([(self.sheet.cell(row["_row"], self.columns["status"]), "DONE"),
+                         (self.sheet.cell(row["_row"], self.columns["timestamp"]), timestamp)])
             row["status"], row["timestamp"] = "DONE", timestamp
             LOG.info("Capture completed batch=%s index=%s", batch, row["unique_capture_index"])
+            return self.current(batch, filters)
+
+    def _write(self, changes):
+        """Apply (cell, value) pairs, save atomically, roll the cells back on failure."""
+        if self.path.with_name("~$" + self.path.name).exists():
+            raise ProjectError("Excel je otvoren. Zatvori ga i pokušaj ponovo.", 409)
+        previous = [(cell, cell.value) for cell, _ in changes]
+        temporary = None
+        try:
+            for cell, value in changes:
+                cell.value = value
+            fd, temporary = tempfile.mkstemp(suffix=".xlsx", prefix=".onscreen-", dir=self.path.parent)
+            os.close(fd)
+            self.workbook.save(temporary)
+            with open(temporary, "r+b") as stream:
+                os.fsync(stream.fileno())
+            self.check_revision()
+            new_revision = digest(Path(temporary))
+            os.replace(temporary, self.path)
+            self.revision = new_revision
+        except Exception as error:
+            for cell, value in previous:
+                cell.value = value
+            if isinstance(error, ProjectError):
+                raise
+            LOG.exception("Workbook save failed")
+            raise ProjectError("Excel nije sačuvan. Zatvori Excel, proveri dozvole i pokušaj ponovo.", 409) from error
+        finally:
+            if temporary and Path(temporary).exists():
+                Path(temporary).unlink()
+
+    def swap_device(self, batch, old_device, device_os, model, filters=None):
+        """Replace a capture device on the batch's remaining TO DO rows."""
+        with self.mutex:
+            self.check_revision()
+            old = parse_filter(old_device)
+            device_os, model = text(device_os), text(model)
+            if old is None:
+                raise ProjectError("Izaberi uređaj koji menjaš.")
+            if device_os not in ("Android", "iOS") or not model:
+                raise ProjectError("Unesi OS (Android ili iOS) i model novog uređaja.")
+            self.current(batch, filters)
+            rows = [row for row in self.rows if row["batch"] == batch and text(row["status"]).upper() == "TO DO"
+                    and old == [text(row["device_os"]), text(row["operational_device_model"])]]
+            if not rows:
+                raise ProjectError("Nema preostalih TO DO zadataka za izabrani uređaj.", 409)
+            self._write([(self.sheet.cell(row["_row"], self.columns[key]), value)
+                         for row in rows for key, value in (("device_os", device_os), ("operational_device_model", model))])
+            for row in rows:
+                row["device_os"], row["operational_device_model"] = device_os, model
+            # The replaced device disappears from the options (kept until the project is reopened).
+            self.swapped_out.add((batch, equipment_key(*old)))
+            self.swapped_out.discard((batch, equipment_key(device_os, model)))
+            LOG.info("Device swapped batch=%s rows=%d", batch, len(rows))
             return self.current(batch, filters)
 
     def timestamp(self, value):
