@@ -5,23 +5,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>OnScreen · Pregled napretka</title>
   <script src="./theme.js"></script>
+  <link rel="stylesheet" href="./tokens.css">
   <link rel="stylesheet" href="./dashboard.css">
   <link rel="stylesheet" href="./workspace-ui.css">
   <script type="module" src="./workspace-ui.js"></script>
   <script type="module" src="./dashboard.js"></script>
 </head>
 <body>
-  <header class="topbar"><a class="brand" href="./index.html"><span class="brand-mark">▣</span> OnScreen <span class="brand-section">/ Admin</span></a><div style="display:flex;align-items:center;gap:12px"><span class="demo-badge">DEMO · STATIČKI PODACI</span><button id="theme-toggle" class="theme-button" type="button" aria-label="Dark mode" aria-pressed="false">Dark mode</button></div></header>
+  <header class="topbar"><a class="brand" href="./index.html"><span class="brand-mark">▣</span> OnScreen <span class="brand-section">/ Admin</span></a><div class="top-actions"><span class="demo-badge">DEMO · STATIČKI PODACI</span><button id="theme-toggle" class="theme-button" type="button" aria-label="Dark mode" aria-pressed="false">Dark mode</button></div></header>
   <main>
-    <div class="heading"><div><p class="eyebrow">PREGLED PROJEKTA</p><h1>Capture napredak</h1><p class="muted">Svi batchevi na jednom mestu.</p></div><div style="display:flex;flex-wrap:wrap;gap:10px"><button id="copy-report" class="button" type="button">Kopiraj izveštaj</button><a class="button" href="./index.html">Otvori capture workspace ↗</a></div></div>
+    <div class="heading"><div><p class="eyebrow">PREGLED PROJEKTA</p><h1>Capture napredak</h1><p class="muted">Svi batchevi na jednom mestu.</p></div><div class="actions"><button id="copy-report" class="button" type="button">Kopiraj izveštaj</button><a class="button" href="./stats.html">Statistika</a><a class="button primary" href="./index.html">Otvori capture workspace ↗</a></div></div>
     <p id="report-status" class="muted" role="status" aria-live="polite" hidden></p>
     <div class="notice">Demo koristi dostavljene podatke. Nije povezan sa lokalnim Excelima i ne prikazuje stanje uživo.</div>
     <section id="summary" class="summary" aria-label="Ukupni pokazatelji"></section>
     <section class="table-card" aria-label="Napredak po batch-evima">
       <div class="table-heading"><div><h2>Batchevi</h2><p id="result-count" class="muted" role="status" aria-live="polite"></p></div><div class="filters"><label><span>Pretraga</span><input id="search" type="search" placeholder="Pronađi batch…"></label><label><span>Capture status</span><select id="status-filter"><option value="all">Svi batchevi</option><option value="active">U toku</option><option value="not-started">Nisu započeti</option><option value="completed">Capture završen</option></select></label></div></div>
-      <div class="table-scroll" tabindex="0" role="region" aria-label="Tabela batch-eva, horizontalno pomeranje"><table><thead><tr><th scope="col">Batch</th><th scope="col">Total</th><th scope="col">Captured</th><th scope="col">Labelled</th><th scope="col">Validated</th><th scope="col">Recaptures</th><th scope="col">Capture napredak</th><th scope="col">Labelled %</th><th scope="col">Validated %</th></tr></thead><tbody id="batch-rows"></tbody><tfoot id="batch-totals"></tfoot></table></div>
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Tabela batch-eva, horizontalno pomeranje"><table><thead><tr id="sort-row">
+        <th scope="col" aria-sort="ascending"><button class="sort" type="button" data-sort="name">Batch</button></th>
+        <th scope="col"><button class="sort" type="button" data-sort="status">Status</button></th>
+        <th scope="col"><button class="sort" type="button" data-sort="total">Total</button></th>
+        <th scope="col"><button class="sort" type="button" data-sort="captured">Captured</button></th>
+        <th scope="col"><button class="sort" type="button" data-sort="remaining">Preostalo</button></th>
+        <th scope="col"><button class="sort" type="button" data-sort="labelled">Labelled</button></th>
+        <th scope="col"><button class="sort" type="button" data-sort="validated">Validated</button></th>
+        <th scope="col"><button class="sort" type="button" data-sort="recaptures">Recaptures</button></th>
+        <th scope="col"><button class="sort" type="button" data-sort="progress">Capture napredak</button></th>
+        <th scope="col"><button class="sort" type="button" data-sort="labelledPct">Labelled %</button></th>
+        <th scope="col"><button class="sort" type="button" data-sort="validatedPct">Validated %</button></th>
+      </tr></thead><tbody id="batch-rows"></tbody><tfoot id="batch-totals"></tfoot></table></div>
       <div id="empty-state" class="empty-state" hidden>Nema batch-eva za izabrane filtere.</div>
-      <div class="table-footer"><span>Pokazatelji na vrhu obuhvataju ceo projekat. Zbir u tabeli prati filtere.</span><span id="active-count"></span></div>
+      <div class="table-footer"><span>Pokazatelji na vrhu obuhvataju ceo projekat. Zbir u tabeli prati filtere. Klikni na naziv kolone za sortiranje.</span><span id="active-count"></span></div>
     </section>
     <p class="footnote">Captured = završeno fotografisanje · Labelled = završeno labelovanje · Validated = završena validacija. U Excel režimu labelled, validated i recaptures nisu dostupni dok se ne definiše njihov izvor.</p>
   </main>

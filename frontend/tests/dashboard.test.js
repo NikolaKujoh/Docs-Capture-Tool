@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { batches, totals, filterBatches, percentage } from '../dashboard-data.js';
+import { batches, totals, filterBatches, sortBatches, statusOf, percentage } from '../dashboard-data.js';
 import { createTextReport } from '../dashboard-report.js';
 
 test('clipboard report includes overall counts and all batches with stage denominators', () => {
@@ -24,4 +24,15 @@ test('search combines with capture filters and empty totals stay valid', () => {
   assert.equal(filterBatches(batches, '', 'active').length, 9);
   assert.equal(percentage(0, 0), 0);
   assert.equal(totals([]).total, 0);
+});
+
+test('sorting handles names, computed columns, unknown values and direction', () => {
+  assert.deepEqual(sortBatches(batches, 'name', 'desc').slice(0, 2).map(row => row.name), ['batch_20', 'batch_19']);
+  assert.equal(sortBatches(batches, 'captured', 'desc')[0].name, 'batch_03');
+  assert.equal(sortBatches(batches, 'remaining', 'asc')[0].name, 'batch_03');
+  const rows = [{ name: 'a', total: 10, captured: 5, labelled: null }, { name: 'b', total: 10, captured: 5, labelled: 2 }];
+  assert.equal(sortBatches(rows, 'labelled', 'asc')[1].name, 'a');
+  assert.equal(sortBatches(rows, 'labelled', 'desc')[1].name, 'a');
+  assert.equal(batches[0].name, 'batch_01');
+  assert.deepEqual([0, 3, 6].map(captured => statusOf({ captured, total: 6 })), ['not-started', 'active', 'completed']);
 });

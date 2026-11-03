@@ -1,0 +1,81 @@
+/* Statistics page. Builds on dashboard.css (top bar, buttons, notice) and tokens.css. */
+.batch-filter span { display: block; font-size: 11px; color: var(--muted); margin: 0 0 5px; }
+.batch-filter { margin-right: 6px; }
+.heading .actions { align-items: flex-end; }
+
+/* KPI row */
+.kpis { display: grid; grid-template-columns: 1.6fr repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; }
+.kpi p { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+.kpi strong { display: block; font-size: 30px; letter-spacing: -1px; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+.kpi.hero strong { font-size: 40px; color: var(--primary); }
+.kpi strong small { font-size: 16px; color: var(--muted); font-weight: 500; letter-spacing: 0; }
+.kpi span { font-size: 12px; color: var(--muted); }
+.kpi progress { display: block; width: 100%; height: 6px; margin-top: 14px; }
+
+/* Cards */
+.cards { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; min-width: 0; }
+.card.third { grid-column: span 4; }
+.card.half { grid-column: span 6; }
+.card.full { grid-column: span 12; }
+.card h2 { font-size: 16px; margin: 0; }
+.card header { margin-bottom: 14px; }
+.card header .muted { font-size: 12px; margin: 4px 0 0; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; margin-bottom: 12px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; }
+.legend-note { color: var(--muted); }
+
+/* Bars: track length = number of tasks, solid part = captured */
+.bars { display: grid; gap: 10px; }
+.bar-row { display: grid; grid-template-columns: minmax(80px, 170px) 1fr auto; align-items: center; gap: 12px; font-size: 13px; }
+.bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-area { min-width: 0; }
+.bar-track { height: 12px; border-radius: 6px; background: var(--track); overflow: hidden; min-width: 4px; }
+.bar-fill { height: 100%; border-radius: 6px; }
+.bar-value { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 12px; }
+.bar-value b { color: var(--text); margin-left: 4px; }
+
+/* Heatmap: one sequential hue, darker = more done */
+.heat-scroll { overflow: auto; }
+.heat { width: 100%; border-collapse: separate; border-spacing: 2px; font-size: 12px; text-align: center; }
+.heat th { font-weight: 600; color: var(--muted); padding: 6px 8px; font-size: 11px; max-width: 110px; }
+.heat tbody th { text-align: left; color: var(--text); white-space: nowrap; }
+.heat td { padding: 7px 4px; border-radius: 4px; font-variant-numeric: tabular-nums; background: color-mix(in srgb, var(--primary) calc(var(--p) * 1%), var(--surface-2)); color: var(--text); }
+.heat td.strong { color: var(--primary-contrast); }
+.heat td.empty { background: transparent; color: var(--muted); }
+
+/* Days chart */
+.days { width: 100%; height: auto; display: block; }
+.days text { fill: var(--muted); font-size: 11px; font-family: var(--font); }
+.days rect { fill: var(--primary); }
+.days rect:hover { filter: brightness(1.2); }
+.days .grid { stroke: var(--border); stroke-width: 1; }
+
+@media (max-width: 1000px) {
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  .kpi.hero { grid-column: span 2; }
+  .card.third, .card.half { grid-column: span 12; }
+}
+@media (max-width: 520px) {
+  .bar-row { grid-template-columns: 1fr auto; }
+  .bar-area { grid-column: 1 / -1; grid-row: 2; }
+}
+
+/* Narrow cards: the track gets its own line so it stays long enough to compare. */
+.card.third .bar-row { grid-template-columns: 1fr auto; row-gap: 4px; }
+.card.third .bar-area { grid-column: 1 / -1; grid-row: 2; }
+
+/* Cross-filtering: bars are clickable, the picked one stays bright */
+.bar-row[data-dim] { cursor: pointer; border-radius: 6px; padding: 3px 6px; margin: -3px -6px; transition: opacity .2s, background .2s; }
+.bar-row[data-dim]:hover { background: var(--surface-2); }
+.bar-row.dim { opacity: .35; }
+.bar-row.on { background: var(--primary-soft); }
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
+.chips .button { padding: 6px 12px; min-height: 0; font-size: 12px; }
+.chip-filter { font: inherit; font-size: 12px; cursor: pointer; border: 1px solid var(--primary); background: var(--primary-soft); color: var(--text); border-radius: 999px; padding: 6px 12px; }
+.chip-filter:hover { background: var(--surface-2); }
+.spark { display: block; width: 100%; height: 28px; margin-top: 10px; }
+.spark polyline { fill: none; stroke: var(--primary); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+@media (prefers-reduced-motion: reduce) { .bar-row[data-dim] { transition: none; } }

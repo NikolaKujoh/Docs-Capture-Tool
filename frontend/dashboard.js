@@ -1,4 +1,4 @@
-import { batches as demoBatches, totals, filterBatches, percentage } from './dashboard-data.js';
+import { batches as demoBatches, totals, filterBatches, sortBatches, statusOf, percentage } from './dashboard-data.js';
 import { createTextReport } from './dashboard-report.js';
 import { ApiClient } from './api.js';
 
@@ -8,13 +8,17 @@ const percent = (value, total) => value === null ? 'Nije dostupno' : `${percenta
 const escape = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 let batches = demoBatches;
 let demo = true;
+let sort = { key: 'name', direction: 'asc' };
 
 function progress(value, total) {
   return `<div class="capture-progress"><progress value="${value}" max="${total || 1}" aria-label="Capture napredak"></progress><span>${percent(value, total)}</span></div>`;
 }
 
-function rowCells(row) {
-  return `<td>${number(row.total)}</td><td>${number(row.captured)}</td><td>${number(row.labelled)}</td><td>${number(row.validated)}</td><td>${number(row.recaptures)}</td><td>${progress(row.captured, row.total)}</td><td>${percent(row.labelled, row.total)}</td><td>${percent(row.validated, row.total)}</td>`;
+const STATUS_LABELS = { 'not-started': 'Nije započet', active: 'U toku', completed: 'Završen' };
+const chip = row => { const status = statusOf(row); return `<span class="chip ${status}">${STATUS_LABELS[status]}</span>`; };
+
+function rowCells(row, status = '') {
+  return `<td>${status}</td><td>${number(row.total)}</td><td>${number(row.captured)}</td><td>${number(row.total - row.captured)}</td><td>${number(row.labelled)}</td><td>${number(row.validated)}</td><td>${number(row.recaptures)}</td><td>${progress(row.captured, row.total)}</td><td>${percent(row.labelled, row.total)}</td><td>${percent(row.validated, row.total)}</td>`;
 }
 
 function renderSummary() {
@@ -30,13 +34,24 @@ $('active-count').textContent = `${batches.filter(row => row.captured > 0 && row
 }
 
 function render() {
-  const rows = filterBatches(batches, $('search').value, $('status-filter').value);
+  const rows = sortBatches(filterBatches(batches, $('search').value, $('status-filter').value), sort.key, sort.direction);
   $('result-count').textContent = `${rows.length} od ${batches.length} batch-eva`;
-  $('batch-rows').innerHTML = rows.map(row => `<tr><th scope="row"><span class="batch-dot ${row.captured ? 'started' : ''}"></span>${escape(row.name)}</th>${rowCells(row)}</tr>`).join('');
+  $('batch-rows').innerHTML = rows.map(row => `<tr><th scope="row">${escape(row.name)}</th>${rowCells(row, chip(row))}</tr>`).join('');
+  for (const th of $('sort-row').children) {
+    const active = th.firstElementChild.dataset.sort === sort.key;
+    th.setAttribute('aria-sort', active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none');
+  }
   $('batch-totals').innerHTML = rows.length ? `<tr><th scope="row">Ukupno prikazano</th>${rowCells(totals(rows))}</tr>` : '';
   $('empty-state').hidden = rows.length > 0;
 }
 
+$('sort-row').addEventListener('click', event => {
+  const key = event.target.closest('[data-sort]')?.dataset.sort;
+  if (!key) return;
+  // Same column flips direction; a new column starts with names A-Z and numbers biggest-first.
+  sort = key === sort.key ? { key, direction: sort.direction === 'asc' ? 'desc' : 'asc' } : { key, direction: key === 'name' ? 'asc' : 'desc' };
+  render();
+});
 $('search').addEventListener('input', render);
 $('status-filter').addEventListener('change', render);
 $('copy-report').addEventListener('click', async () => {

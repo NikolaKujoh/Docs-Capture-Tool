@@ -165,6 +165,19 @@ def test_document_folder_with_different_filename_and_ambiguity(dataset):
         project.close()
 
 
+def test_stats_cube_and_daily_counts(dataset):
+    with TestClient(create_app()) as client:
+        open_client(client, dataset)
+        task = client.get("/api/batches/batch_10/current").json()["task"]
+        client.post(f"/api/tasks/{task['task_id']}/complete", json={"batch": "batch_10", "revision": task["revision"]})
+        data = client.get("/api/reports/stats").json()
+    by_device = {row["device"]: row for row in data["cube"]}
+    assert (by_device["Pixel"]["total"], by_device["Pixel"]["done"]) == (2, 1)
+    assert (by_device["iPhone"]["total"], by_device["iPhone"]["done"]) == (1, 0)
+    assert by_device["Pixel"]["orientation"] == "Portrait" and by_device["Pixel"]["replay_type"] == "Monitor"
+    assert [(day["batch"], day["count"]) for day in data["days"]] == [("batch_10", 1)]
+
+
 def test_browse_returns_picked_path_and_reports_failure():
     with TestClient(create_app()) as client:
         assert client.post("/api/browse", json={"kind": "file"}).status_code == 403  # needs session token
