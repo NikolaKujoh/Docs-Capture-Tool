@@ -17,16 +17,38 @@ export function totals(rows) {
   }, { total: 0, captured: 0, labelled: 0, validated: 0, recaptures: 0 });
 }
 
+export const STATUSES = ['not-started', 'active', 'completed'];
+
+export function statusOf(row) {
+  return row.captured === 0 ? 'not-started' : row.captured < row.total ? 'active' : 'completed';
+}
+
 export function filterBatches(rows, query, status) {
   const search = query.trim().toLowerCase();
-  return rows.filter(row => row.name.toLowerCase().includes(search) && (
-    status === 'all' ||
-    (status === 'active' && row.captured > 0 && row.captured < row.total) ||
-    (status === 'not-started' && row.captured === 0) ||
-    (status === 'completed' && row.captured === row.total)
-  ));
+  return rows.filter(row => row.name.toLowerCase().includes(search) && (status === 'all' || statusOf(row) === status));
 }
 
 export function percentage(value, total) {
   return total ? value / total * 100 : 0;
+}
+
+// Columns that are computed rather than stored on the row.
+const sortValue = {
+  name: row => row.name,
+  status: row => STATUSES.indexOf(statusOf(row)),
+  remaining: row => row.total - row.captured,
+  progress: row => percentage(row.captured, row.total),
+  labelledPct: row => row.labelled === null ? null : percentage(row.labelled, row.total),
+  validatedPct: row => row.validated === null ? null : percentage(row.validated, row.total),
+};
+
+// Unknown values (null) always sort last, whichever direction is chosen.
+export function sortBatches(rows, key, direction = 'asc') {
+  const get = sortValue[key] ?? (row => row[key]);
+  const sign = direction === 'asc' ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    const [x, y] = [get(a), get(b)];
+    if (x === null || y === null) return (x === null) - (y === null);
+    return sign * (typeof x === 'string' ? x.localeCompare(y, undefined, { numeric: true }) : x - y);
+  });
 }

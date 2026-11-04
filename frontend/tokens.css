@@ -1,0 +1,63 @@
+/* Shared design tokens. Pages use these variables instead of raw colors, so dark mode is one block. */
+:root {
+  --font: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  --radius: 10px;
+  --radius-sm: 7px;
+  --space: 16px;
+
+  --bg: #f3f6f6;
+  --surface: #fff;
+  --surface-2: #f6f9f9;
+  --border: #dde5e5;
+  --text: #16282b;
+  --muted: #56696c;
+
+  --primary: #0f766e;
+  --primary-contrast: #fff;
+  --primary-soft: #e2f4f1;
+  --blue: #1d6fb8;
+  --green: #2f855a;
+  --warn: #9a5b00;
+  --warn-soft: #fdf1dc;
+  --ok: #1f7a4d;
+  --ok-soft: #e0f4e8;
+  --track: #e3eaea;
+  --series-1: #2a78d6; /* Android */
+  --series-2: #eb6834; /* iOS */
+  --accent: #c2410c; /* main action (NEXT) */
+  --accent-contrast: #fff;
+  --danger: #b42318;
+  --danger-soft: #fff1f0;
+  --viewer-bg: #e9ecf1;
+  --viewer-dot: #bac2cf66;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #131b29;
+  --surface: #1d283a;
+  --surface-2: #243148;
+  --border: #344157;
+  --text: #e3eaf5;
+  --muted: #a7b3c7;
+
+  --primary: #2dd4bf;
+  --primary-contrast: #04201d;
+  --primary-soft: #143a3d;
+  --blue: #89b9ed;
+  --green: #6dd0b4;
+  --warn: #fbbf24;
+  --warn-soft: #3a2f14;
+  --ok: #5fd49a;
+  --ok-soft: #123a2a;
+  --track: #344157;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --accent: #fb923c;
+  --accent-contrast: #2a1200;
+  --danger: #ffbdba;
+  --danger-soft: #41272c;
+  --viewer-bg: #202b3b;
+  --viewer-dot: #8797ae33;
+  color-scheme: dark;
+}

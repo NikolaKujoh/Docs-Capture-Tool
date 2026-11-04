@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OnScreen · Statistika</title>
+  <script src="./theme.js"></script>
+  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./dashboard.css">
+  <link rel="stylesheet" href="./stats.css">
+  <link rel="stylesheet" href="./workspace-ui.css">
+  <script type="module" src="./workspace-ui.js"></script>
+  <script type="module" src="./stats.js"></script>
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="./index.html"><span class="brand-mark">▣</span> OnScreen <span class="brand-section">/ Statistika</span></a><div class="top-actions"><span class="demo-badge">DEMO · STATIČKI PODACI</span><button id="theme-toggle" class="theme-button" type="button" aria-label="Dark mode" aria-pressed="false">Dark mode</button></div></header>
+  <main>
+    <div class="heading"><div><p class="eyebrow">STATISTIKA PROJEKTA</p><h1>Capture statistika</h1><p class="muted">Šta je snimljeno, čime, i kojom brzinom.</p></div>
+      <div class="actions"><label class="batch-filter"><span>Batch</span><select id="batch-filter"></select></label><a class="button" href="./dashboard.html">Dashboard</a><a class="button primary" href="./index.html">Capture workspace ↗</a></div></div>
+    <div class="notice" id="notice">Demo koristi izmišljene podatke. Nije povezan sa lokalnim Excelom.</div>
+    <div id="chips" class="chips" aria-label="Aktivni filteri" hidden></div>
+    <section id="kpis" class="kpis" aria-label="Ključni pokazatelji"></section>
+    <section id="cards" class="cards"></section>
+  </main>
+</body>
+</html>

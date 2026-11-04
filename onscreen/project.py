@@ -298,6 +298,26 @@ class Project:
     def records(self):
         return {"records": [{"task_id": row["task_id"], "batch": row["batch"], "status": text(row["status"]), "timestamp": self.timestamp(row["timestamp"])} for row in self.rows]}
 
+    def stats(self):
+        """Counts per combination of the dimensions the statistics page slices by, plus captures per day.
+
+        The browser sums whatever slice it needs (one batch, one OS...), so new charts need no new endpoint.
+        """
+        keys = ("batch", "device_os", "operational_device_model", "orientation", "replay_device_type", "issuing_country", "doc_type")
+        cube, days = {}, Counter()
+        for row in self.rows:
+            done = text(row["status"]).upper() == "DONE"
+            entry = cube.setdefault(tuple(text(row[key]) or "—" for key in keys), [0, 0])
+            entry[0] += 1
+            entry[1] += done
+            stamp = self.timestamp(row["timestamp"]) if done else None
+            if stamp:
+                days[(stamp[:10], row["batch"])] += 1
+        names = ("batch", "device_os", "device", "orientation", "replay_type", "country", "doc_type")
+        return {"cube": [dict(zip(names, key), total=total, done=done) for key, (total, done) in cube.items()],
+                "days": [{"date": date, "batch": batch, "count": count} for (date, batch), count in sorted(days.items())],
+                "updated_at": datetime.now(self.zone).isoformat(), "workbook_path": str(self.path)}
+
     def dashboard(self):
         result = []
         for batch in self.batches:

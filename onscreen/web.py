@@ -176,6 +176,11 @@ def create_app():
         with guard:
             return active().records()
 
+    @app.get("/api/reports/stats")
+    def stats():
+        with guard:
+            return active().stats()
+
     @app.get("/api/reports/dashboard")
     def dashboard():
         with guard:
