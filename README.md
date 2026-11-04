@@ -14,6 +14,7 @@ i JavaScript module, bez npm zavisnosti, CDN-a ili build koraka.
 - [Priprema podataka](#priprema-podataka)
 - [Rad sa zadacima](#rad-sa-zadacima)
 - [Dashboard i izveštaji](#dashboard-i-izveštaji)
+- [Statistika](#statistika)
 - [Demo režim](#demo-režim)
 - [Čuvanje podataka](#čuvanje-podataka)
 - [Razvoj i provere](#razvoj-i-provere)
@@ -27,7 +28,10 @@ i JavaScript module, bez npm zavisnosti, CDN-a ili build koraka.
 - Prikaz slike sa zumiranjem, pomeranjem i fullscreen režimom.
 - Prikaz capture indeksa preko slike, uz podešavanje veličine oznake.
 - Instrukcije za orijentaciju telefona, uređaj, državu i tip dokumenta.
-- Dashboard sa pregledom napretka i kopiranje dnevnog capture izveštaja.
+- Dashboard sa pregledom napretka, sortiranjem kolona i kopiranjem dnevnog
+  capture izveštaja.
+- Stranica **Statistika**: capture po uređaju, OS-u, položaju telefona, batch-u
+  i danu, uz međusobno filtriranje grafikona.
 - Svetla i tamna tema, pomoć u interfejsu i raspored prilagođen manjim ekranima.
 
 ## Pokretanje aplikacije
@@ -156,7 +160,12 @@ implementiran.
 ## Dashboard i izveštaji
 
 **Dashboard** otvara pregled batch-eva sa ukupnim pokazateljima, pretragom,
-capture status filterom i zbirom filtriranih redova.
+capture status filterom i zbirom filtriranih redova. Svaki batch ima oznaku
+statusa: nije započet, u toku ili završen.
+
+Klik na naslov kolone sortira batch-eve. Prvi klik sortira nazive rastuće, a
+brojeve opadajuće; ponovni klik na istu kolonu menja smer. Vrednosti koje nisu
+dostupne uvek ostaju na kraju liste.
 
 U Excel režimu izvor je trenutno otvoreni workbook. Label, validation i
 recapture vrednosti prikazane su kao nedostupne jer za te faze nije definisan
@@ -170,6 +179,33 @@ Taj raspon uključuje pauze i ne predstavlja aktivno radno vreme.
 
 Dan se određuje prema lokalnoj vremenskoj zoni browsera. Kopiranje zahteva
 localhost ili HTTPS i dozvoljen pristup clipboard-u.
+
+## Statistika
+
+Stranica **Statistika** (`stats.html`) otvara se linkom sa radnog ekrana ili
+dashboard-a. Prikazuje koliko je zadataka snimljeno od ukupnog broja, za sve
+batch-eve ili za jedan izabran u polju **Batch**.
+
+- **Pokazatelji:** snimljeno od ukupno, procenat završenosti, broj capture-a
+  danas, prosek po danu (uz mali trend poslednjih 14 dana) i procena preostalih
+  radnih dana. Prosek se računa samo preko dana u kojima je bilo capture-a.
+- **Grafikoni:** napredak po operativnom sistemu (samo Android i iOS), položaju
+  telefona (Portrait i Landscape), replay ekranu, uređaju, državi i tipu
+  dokumenta, uz capture po danu za poslednjih 30 dana. Za sve batch-eve dodaje
+  se i mapa batch-a po uređaju. Duga lista država i dokumenata prikazuje prvih
+  osam, a ostalo se spaja u **Ostalo**.
+- **Međusobno filtriranje:** klik na red u bilo kom grafikonu filtrira sve
+  ostale grafikone i pokazatelje; ponovni klik uklanja filter. Aktivni filteri
+  se prikazuju kao čipovi, a **Poništi filtere** uklanja sve odjednom. Svaki
+  grafikon i dalje prikazuje sve opcije svoje dimenzije. Capture po danu prati
+  samo izbor batch-a.
+
+U Excel režimu backend na `GET /api/reports/stats` vraća brojeve zadataka po
+kombinaciji batch-a, uređaja, položaja, replay ekrana, države i tipa dokumenta,
+kao i broj završenih capture-a po danu. Filtriranje i sabiranje obavlja
+browser. Dan capture-a dolazi iz upisanog `timestamp`-a, pa zadaci bez njega ne
+ulaze u grafikon po danima. Podaci se učitavaju pri otvaranju stranice; osveži
+je za novo stanje. U demo režimu prikazuju se izmišljeni podaci.
 
 ## Demo režim
 
@@ -185,6 +221,7 @@ python -m http.server 8080 --bind 127.0.0.1 --directory frontend
 
 - Radni ekran: <http://127.0.0.1:8080>
 - Dashboard: <http://127.0.0.1:8080/dashboard.html>
+- Statistika: <http://127.0.0.1:8080/stats.html>
 
 Ne otvaraj `index.html` direktno preko `file://`, jer interfejs koristi ES module.
 Ako je port zauzet, izaberi drugi. `Ctrl+C` zaustavlja demo server.
@@ -290,7 +327,10 @@ frontend/
   daily-report.js        dnevni capture izveštaj
   dashboard.html         pregled batch-eva
   dashboard*.js          podaci, prikaz i izveštaji dashboard-a
+  stats.html             stranica Statistika
+  stats*.js              obračun i prikaz grafikona statistike
   theme.js               izbor teme
+  tokens.css             zajedničke boje, font i razmaci za svetlu i tamnu temu
   workspace-ui.*         pomoć i dodatne UI kontrole
   *.css                  stilovi i responsive raspored
   tests/                 Node testovi i browser smoke provera
