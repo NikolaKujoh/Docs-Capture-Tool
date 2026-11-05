@@ -1,10 +1,10 @@
 import { ApiClient, DemoClient } from './api.js';
-import { CompletionGate, readable } from './core.js';
+import { CompletionGate, isTodo, readable } from './core.js';
 import { ImageViewer } from './viewer.js';
 import { createDailyReport } from './daily-report.js';
 
 const $ = id => document.getElementById(id);
-const state = { client: null, task: null, batch: '', busy: false, ready: false, demo: false, retry: null, reporting: false, filters: {}, filterOptions: null };
+const state = { client: null, task: null, batch: '', busy: false, ready: false, demo: false, retry: null, reporting: false, filters: {}, filterOptions: null, history: [], pending: 0 };
 const gate = new CompletionGate();
 const viewer = new ImageViewer({
   viewport: $('viewer'), image: $('document-image'), layer: $('image-layer'),
@@ -20,6 +20,13 @@ function updateControls() {
   const enabled = state.ready && !state.busy && Boolean(state.task);
   $('index-size').disabled = !enabled;
   for (const id of ['next-task', 'toggle-index', 'zoom-in', 'zoom-out', 'fit-image', 'fullscreen']) $(id).disabled = !enabled;
+  // Skip is for TO DO tasks, Undo for DONE ones (reached with Back); neither needs the image to be loaded.
+  const idle = !state.busy && Boolean(state.task);
+  $('skip-task').hidden = Boolean(state.task) && !isTodo(state.task.status);
+  $('undo-task').hidden = !state.task || isTodo(state.task.status);
+  $('skip-task').disabled = !idle || state.pending < 2;
+  $('undo-task').disabled = !idle;
+  document.querySelectorAll('[data-back]').forEach(button => { button.disabled = state.busy || !state.history.length; });
   $('batch-select').disabled = state.busy || !state.client;
   $('open-project').disabled = state.busy;
   $('retry').disabled = state.busy;
@@ -56,7 +63,8 @@ function renderBatch(data) {
   $('progress-label').textContent = `${done} / ${total} završeno · ${pending} preostalo${filtered ? ' · izabrana oprema' : ''}`;
   $('batch-progress').max = total || 1;
   $('batch-progress').value = done;
-  $('task-position').textContent = pending ? 'Capture u toku' : 'Nema TO DO zadataka';
+  state.pending = pending;
+  $('task-position').textContent = !state.task ? 'Nema TO DO zadataka' : !isTodo(state.task.status) ? 'Završen capture · pregled' : state.task.skipped ? 'Preskočen capture' : 'Capture u toku';
   $('capture-workspace').hidden = !state.task;
   $('completed-panel').hidden = Boolean(state.task);
   $('completed-title').textContent = total === 0 ? 'Nema zadataka za ovu kombinaciju.' : 'Nema preostalih TO DO zadataka.';
@@ -88,6 +96,7 @@ async function loadBatch(batch, filters = {}) {
     const data = await state.client.getBatch(batch, filters);
     state.batch = batch;
     state.filters = { ...filters };
+    state.history = [];
     $('batch-select').value = batch;
     renderBatch(data);
   } catch (error) {
@@ -113,6 +122,7 @@ async function openProject(client, settings, demo) {
     try { sessionStorage.setItem('onscreen.mode', demo ? 'demo' : 'api'); } catch { /* Optional preference. */ }
     state.batch = batch;
     state.filters = {};
+    state.history = [];
     $('batch-select').replaceChildren(...project.batches.map(name => new Option(name, name)));
     $('daily-report-status').hidden = true;
     $('mode-badge').textContent = demo ? 'DEMO' : 'EXCEL';
@@ -130,22 +140,46 @@ async function openProject(client, settings, demo) {
   }
 }
 
-async function completeTask() {
-  if (state.busy || !state.ready || !state.task) return;
+// One step of NEXT / Skip / Undo / Back. `history`: 'push' remembers the task we leave, 'pop' returns to the last one.
+async function move(status, call, history, retry) {
+  const from = state.task?.task_id;
   await gate.run(async () => {
     setBusy(true);
     clearError();
-    $('save-status').textContent = state.demo ? 'Čuvanje demo napretka…' : 'Čuvanje u Excel…';
+    $('save-status').textContent = status;
     try {
-      const data = await state.client.complete(state.task, state.filters);
+      const data = await call();
       renderBatch(data);
+      if (history === 'push') state.history.push(from);
+      if (history === 'pop') state.history.pop();
       if (state.task) $('viewer').focus({ preventScroll: true });
       else $('choose-batch').focus({ preventScroll: true });
     } catch (error) {
       $('save-status').textContent = 'Nije sačuvano';
-      showError(error, completeTask);
+      showError(error, retry);
     } finally { setBusy(false); }
   });
+}
+
+function completeTask() {
+  if (state.busy || !state.ready || !state.task) return;
+  return move(state.demo ? 'Čuvanje demo napretka…' : 'Čuvanje u Excel…', () => state.client.complete(state.task, state.filters), 'push', completeTask);
+}
+
+function skipTask() {
+  if (state.busy || !state.task) return;
+  return move('Preskakanje…', () => state.client.skip(state.task, state.filters), 'push', skipTask);
+}
+
+function undoTask() {
+  if (state.busy || !state.task) return;
+  return move(state.demo ? 'Vraćanje u demo…' : 'Vraćanje u Excel…', () => state.client.undo(state.task, state.filters), null, undoTask);
+}
+
+function backTask() {
+  if (state.busy || !state.history.length) return;
+  const id = state.history.at(-1);
+  return move('Učitavanje prethodnog…', () => state.client.getBatch(state.batch, state.filters, id), 'pop', backTask);
 }
 
 async function swapDevice(event) {
@@ -159,6 +193,7 @@ async function swapDevice(event) {
   try {
     const data = await state.client.swapDevice(state.batch, old, os, model, filters);
     state.filters = filters;
+    state.history = []; // finished tasks keep the old device, so they may fall out of the filter
     renderBatch(data);
     $('swap-dialog').close();
   } catch (error) { $('swap-error').textContent = error.message; }
@@ -202,6 +237,9 @@ async function copyDailyReport() {
 
 $('copy-daily-report').addEventListener('click', copyDailyReport);
 $('next-task').addEventListener('click', completeTask);
+$('skip-task').addEventListener('click', skipTask);
+$('undo-task').addEventListener('click', undoTask);
+document.querySelectorAll('[data-back]').forEach(button => button.addEventListener('click', backTask));
 $('toggle-index').addEventListener('click', toggleIndex);
 $('index-size').addEventListener('input', event => {
   viewer.setIndexSize(event.target.value);

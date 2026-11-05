@@ -29,13 +29,15 @@ export class ApiClient {
 
   async openProject(settings) { return settings ? this.request('project/open', settings) : (await this.session()).project; }
   browse(kind, start) { return this.request('browse', { kind, start }); }
-  getBatch(batch, filters = {}) {
-    const query = new URLSearchParams(Object.entries(filters).filter(([, value]) => value));
+  getBatch(batch, filters = {}, focus = '') {
+    const query = new URLSearchParams(Object.entries({ ...filters, focus }).filter(([, value]) => value));
     return this.request(`batches/${encodeURIComponent(batch)}/current${query.size ? '?' + query : ''}`);
   }
   getCaptureRecords() { return this.request('reports/captures'); }
   swapDevice(batch, oldDevice, deviceOs, model, filters = {}) { return this.request('devices/swap', { batch, old_device: oldDevice, device_os: deviceOs, model, ...(Object.values(filters).some(Boolean) ? { filters } : {}) }); }
   complete(task, filters = {}) { return this.request(`tasks/${encodeURIComponent(task.task_id)}/complete`, { batch: task.batch, revision: task.revision, ...(Object.values(filters).some(Boolean) ? { filters } : {}) }); }
+  undo(task, filters = {}) { return this.request(`tasks/${encodeURIComponent(task.task_id)}/undo`, { batch: task.batch, revision: task.revision, ...(Object.values(filters).some(Boolean) ? { filters } : {}) }); }
+  skip(task, filters = {}) { return this.request(`tasks/${encodeURIComponent(task.task_id)}/skip`, { batch: task.batch, ...(Object.values(filters).some(Boolean) ? { filters } : {}) }); }
 }
 
 const STORAGE_KEY = 'onscreen.demo.progress.v1';
@@ -62,6 +64,7 @@ function demoImage(country, type, back) {
 export class DemoClient {
   constructor(storage = globalThis.localStorage) {
     this.storage = storage;
+    this.skipped = [];
     let saved;
     try { saved = JSON.parse(storage.getItem(STORAGE_KEY) || '{}'); }
     catch { saved = {}; }
@@ -84,10 +87,40 @@ export class DemoClient {
     return { records: this.tasks.map(({ task_id, batch, status, timestamp }) => ({ task_id, batch, status, timestamp })) };
   }
 
-  async getBatch(batch, filters = {}) {
+  async getBatch(batch, filters = {}, focus = '') {
     const rows = this.tasks.filter(task => matchesEquipment(task, filters));
-    return { task: firstPending(rows, batch), progress: batchProgress(rows, batch),
+    const task = focus ? rows.find(row => row.task_id === focus && row.batch === batch) : firstPending(rows, batch, this.skipped);
+    if (focus && !task) throw new Error('Capture zadatak nije u izabranom skupu.');
+    return { task: task && { ...task, skipped: this.skipped.includes(task.task_id) }, progress: batchProgress(rows, batch),
       filter_options: equipmentOptions(this.tasks.filter(task => task.batch === batch)) };
+  }
+
+  async skip(task, filters = {}) {
+    const current = this.tasks.find(row => row.task_id === task.task_id);
+    if (!current || current.status !== 'TO DO') throw new Error('Samo zadatak sa statusom TO DO može da se preskoči.');
+    // ponytail: skips live in memory only, like the backend.
+    this.skipped = this.skipped.filter(id => id !== current.task_id).concat(current.task_id);
+    return this.getBatch(task.batch, filters);
+  }
+
+  // Writes the status, then the DONE map; a failed save leaves the row untouched.
+  #set(row, status, timestamp) {
+    const previous = { status: row.status, timestamp: row.timestamp };
+    Object.assign(row, { status, timestamp });
+    const saved = Object.fromEntries(this.tasks.filter(item => item.status === 'DONE')
+      .map(item => [item.unique_capture_index, { status: 'DONE', timestamp: item.timestamp }]));
+    try { this.storage.setItem(STORAGE_KEY, JSON.stringify(saved)); }
+    catch {
+      Object.assign(row, previous);
+      throw new Error('Browser ne dozvoljava čuvanje demo napretka. Omogući lokalno skladištenje i pokušaj ponovo.');
+    }
+  }
+
+  async undo(task, filters = {}) {
+    const current = this.tasks.find(row => row.task_id === task.task_id);
+    if (!current) throw new Error('Demo zadatak ne postoji.');
+    if (current.status === 'DONE') this.#set(current, 'TO DO', '');
+    return this.getBatch(task.batch, filters, current.task_id);
   }
 
   async swapDevice(batch, oldDevice, deviceOs, model, filters = {}) {
@@ -101,13 +134,8 @@ export class DemoClient {
   async complete(task, filters = {}) {
     const current = this.tasks.find(row => row.task_id === task.task_id);
     if (!current) throw new Error('Demo zadatak ne postoji.');
-    const timestamp = current.timestamp || new Date().toISOString();
-    const saved = Object.fromEntries(this.tasks.filter(row => row.status === 'DONE' || row === current)
-      .map(row => [row.unique_capture_index, { status: 'DONE', timestamp: row === current ? timestamp : row.timestamp }]));
-    try { this.storage.setItem(STORAGE_KEY, JSON.stringify(saved)); }
-    catch { throw new Error('Browser ne dozvoljava čuvanje demo napretka. Omogući lokalno skladištenje i pokušaj ponovo.'); }
-    current.status = 'DONE';
-    current.timestamp = timestamp;
+    this.#set(current, 'DONE', current.timestamp || new Date().toISOString());
+    this.skipped = this.skipped.filter(id => id !== current.task_id);
     return this.getBatch(task.batch, filters);
   }
 }

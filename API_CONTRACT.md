@@ -172,3 +172,19 @@ Ako backend ne pošalje `filter_options`, dropdown filteri su onemogućeni.
 `Android` ili `iOS`. Menja `device_os` i `operational_device_model` samo u
 preostalim TO DO redovima tog batch-a sa starim uređajem (DONE ostaje). Vraća
 isti format kao GET current. 409 ako nema takvih redova, 422 za nevalidan OS/model.
+
+## Skip, Back i Undo
+
+- `POST /api/tasks/{task_id}/skip` — `{batch, filters?}`. Zadatak ostaje `TO DO`
+  i ide iza ostalih preostalih (kada su svi preskočeni, prvi se vraća najstariji
+  skip). Ništa se ne upisuje u Excel; lista preskočenih živi u memoriji
+  backend-a do ponovnog pokretanja. 409 ako zadatak nije `TO DO`.
+- `GET /api/batches/{batch}/current?focus={task_id}` — vraća taj zadatak (bilo
+  kog statusa) umesto prvog `TO DO`; koristi ga Back. 404 ako zadatak nije u
+  filtriranom skupu. Istoriju za Back vodi browser (nestaje pri osvežavanju,
+  promeni batch-a ili filtera).
+- `POST /api/tasks/{task_id}/undo` — `{batch, revision, filters?}`. `DONE` →
+  `TO DO`, timestamp se briše, čuva se u Excel. Odgovor je isti kao GET current
+  sa `focus` na tom zadatku. Idempotentno za `TO DO`; 409 za zastareo
+  `revision`.
+- `task.skipped` (bool) označava preskočen zadatak u odgovoru.
