@@ -73,6 +73,8 @@ class Project:
         self.owns_lock = False
         self.workbook = None
         self.swapped_out = set()
+        # ponytail: skipped tasks live in memory only (oldest skip first), lost on restart; persist if operators ask.
+        self.skipped = {}
         try:
             if acquire_lock:
                 self.file_lock.acquire()
@@ -172,7 +174,8 @@ class Project:
                 "timezone": self.timezone, "workbook_path": str(self.path),
                 "warnings": [{"task_id": key, "detail": value} for key, value in self.image_errors.items()]}
 
-    def current(self, batch, filters=None):
+    def current(self, batch, filters=None, focus=None):
+        """First TO DO (skipped ones last), or the `focus` task of any status (Back / Undo)."""
         filters = filters or {}
         capture = parse_filter(filters.get("capture_device"))
         replay = parse_filter(filters.get("replay_screen"))
@@ -183,9 +186,16 @@ class Project:
                 (capture is None or capture == [text(row["device_os"]), text(row["operational_device_model"])]) and
                 (replay is None or replay == [text(row["replay_device_type"]), text(row["replay_device_model"])])]
         pending = [row for row in rows if text(row["status"]).upper() == "TO DO"]
+        order = list(self.skipped)
+        queue = [row for row in pending if row["task_id"] not in self.skipped] or sorted(pending, key=lambda row: order.index(row["task_id"]))
+        if focus:
+            queue = [row for row in rows if row["task_id"] == focus]
+            if not queue:
+                raise ProjectError("Capture zadatak nije u izabranom skupu.", 404)
         task = None
-        if pending:
-            task = {key: value for key, value in pending[0].items() if not key.startswith("_")}
+        if queue:
+            task = {key: value for key, value in queue[0].items() if not key.startswith("_")}
+            task["skipped"] = task["task_id"] in self.skipped
             task["timestamp"] = self.timestamp(task["timestamp"])
             task["revision"] = self.revision
             task["image_url"] = "/api/images/" + task["task_id"]
@@ -224,8 +234,44 @@ class Project:
             self._write([(self.sheet.cell(row["_row"], self.columns["status"]), "DONE"),
                          (self.sheet.cell(row["_row"], self.columns["timestamp"]), timestamp)])
             row["status"], row["timestamp"] = "DONE", timestamp
+            self.skipped.pop(task_id, None)
             LOG.info("Capture completed batch=%s index=%s", batch, row["unique_capture_index"])
             return self.current(batch, filters)
+
+    def _task(self, task_id, batch, filters):
+        row = self.by_id.get(task_id)
+        if row is None or row["batch"] != batch:
+            raise ProjectError("Capture zadatak ne postoji u izabranom batch-u.", 404)
+        self.current(batch, filters)  # validates the filters
+        return row
+
+    def skip(self, task_id, batch, filters=None):
+        """Leave a TO DO task as it is and move it behind the other pending ones."""
+        with self.mutex:
+            self.check_revision()
+            row = self._task(task_id, batch, filters)
+            if text(row["status"]).upper() != "TO DO":
+                raise ProjectError("Samo zadatak sa statusom TO DO može da se preskoči.", 409)
+            self.skipped.pop(task_id, None)
+            self.skipped[task_id] = None
+            return self.current(batch, filters)
+
+    def undo(self, task_id, batch, revision, filters=None):
+        """Turn a DONE task back into TO DO (clears the timestamp) and keep it on screen."""
+        with self.mutex:
+            self.check_revision()
+            row = self._task(task_id, batch, filters)
+            if text(row["status"]).upper() == "TO DO":
+                return self.current(batch, filters, task_id)
+            if revision != self.revision:
+                raise ProjectError("Zastareo prikaz zadatka. Ponovo učitaj projekat.", 409)
+            if text(row["status"]).upper() != "DONE":
+                raise ProjectError("Samo DONE zadatak može da se vrati na TO DO.", 409)
+            self._write([(self.sheet.cell(row["_row"], self.columns["status"]), "TO DO"),
+                         (self.sheet.cell(row["_row"], self.columns["timestamp"]), None)])
+            row["status"], row["timestamp"] = "TO DO", None
+            LOG.info("Capture undone batch=%s index=%s", batch, row["unique_capture_index"])
+            return self.current(batch, filters, task_id)
 
     def _write(self, changes):
         """Apply (cell, value) pairs, save atomically, roll the cells back on failure."""

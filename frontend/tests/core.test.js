@@ -90,3 +90,45 @@ test('API sends task identity/revision and surfaces backend save errors', async 
     assert.deepEqual(JSON.parse(received.options.body), { batch: 'batch_10', revision: 'v1' });
   } finally { globalThis.fetch = previous; }
 });
+
+test('firstPending puts skipped tasks last, oldest skip first', () => {
+  const tasks = [1, 2, 3].map(id => ({ batch: 'a', status: 'TO DO', task_id: id }));
+  assert.equal(firstPending(tasks, 'a', [1]).task_id, 2);
+  assert.equal(firstPending(tasks, 'a', [2, 3, 1]).task_id, 2);
+});
+
+test('demo skip, back (focus) and undo', async () => {
+  const storage = memoryStorage();
+  const client = new DemoClient(storage);
+  const first = (await client.getBatch('batch_10')).task;
+  const skipped = await client.skip(first);
+  assert.equal(skipped.task.unique_capture_index, '3148');
+  assert.equal(skipped.progress.pending, 6);
+  assert.equal((await client.getBatch('batch_10', {}, first.task_id)).task.skipped, true);
+  await assert.rejects(client.getBatch('batch_10', {}, 'nope'), /izabranom skupu/);
+  const done = await client.complete(skipped.task);
+  assert.equal(done.progress.done, 1);
+  await assert.rejects(client.skip(skipped.task), /TO DO/);
+  const undone = await client.undo(skipped.task);
+  assert.equal(undone.task.status, 'TO DO');
+  assert.equal(undone.task.timestamp, '');
+  assert.equal(undone.progress.done, 0);
+  assert.equal((await new DemoClient(storage).getBatch('batch_10')).progress.done, 0);
+});
+
+test('API sends skip, undo and focus', async () => {
+  const previous = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, options) => { calls.push({ url, body: options.body }); return { ok: true, json: async () => ({}) }; };
+  try {
+    const api = new ApiClient();
+    api.token = 't';
+    const task = { task_id: 'a', batch: 'b', revision: 'v' };
+    await api.skip(task);
+    await api.undo(task);
+    await api.getBatch('b', { capture_device: 'x' }, 'a');
+    assert.deepEqual(calls.map(call => call.url), ['./api/tasks/a/skip', './api/tasks/a/undo', './api/batches/b/current?capture_device=x&focus=a']);
+    assert.deepEqual(JSON.parse(calls[0].body), { batch: 'b' });
+    assert.deepEqual(JSON.parse(calls[1].body), { batch: 'b', revision: 'v' });
+  } finally { globalThis.fetch = previous; }
+});

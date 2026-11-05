@@ -39,6 +39,7 @@ help.innerHTML = `
       <li><strong>Zumiraj</strong> točkićem ili +/− i prevuci sliku da je pomeriš. Fit to screen ili dvoklik vraća prikaz.</li>
       <li><strong>Show index</strong> dodaje broj preko iste slike kada snimaš stranu koja nije bitna. Prevuci oznaku mišem ili dodirom na željeno mesto unutar slike. Klizač <strong>Veličina indeksa</strong> menja veličinu od 50% do 200%; izbor ostaje tokom rada do osvežavanja stranice. Hide index ga sklanja; original se ne menja. Nova slika vraća oznaku u početni položaj.</li>
       <li><strong>NEXT</strong> potvrđuje završen capture. Sledeći zadatak se otvara nakon uspešnog čuvanja; indeks se sakriva.</li>
+      <li><strong>Skip</strong> preskače capture: ostaje TO DO i vraća se na kraju reda. <strong>← Back</strong> vraća na prethodni capture (i na preskočeni ili završeni). Ako je to završen capture, <strong>Undo</strong> ga vraća na TO DO i briše vreme. Istorija za Back traje dok ne promeniš batch ili filtere ili ne osvežiš stranicu; preskočeni zadaci se pamte do ponovnog pokretanja aplikacije.</li>
       <li><strong>Kopiraj dnevni izveštaj</strong> daje današnji broj zadataka, prvo i poslednje vreme i raspon za sve batcheve projekta. Raspon uključuje pauze.</li>
     </ol>
     <p><strong>Prečice:</strong> +/− zoom · 0 reset · I index · F fullscreen · Esc izlaz iz fullscreen-a.</p>

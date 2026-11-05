@@ -2,8 +2,11 @@ export function isTodo(status) {
   return String(status ?? '').trim().toUpperCase() === 'TO DO';
 }
 
-export function firstPending(tasks, batch) {
-  return tasks.find(task => task.batch === batch && isTodo(task.status)) ?? null;
+// `skipped` = task ids, oldest skip first: they come after every non-skipped TO DO.
+export function firstPending(tasks, batch, skipped = []) {
+  const todo = tasks.filter(task => task.batch === batch && isTodo(task.status));
+  return todo.find(task => !skipped.includes(task.task_id))
+    ?? todo.sort((a, b) => skipped.indexOf(a.task_id) - skipped.indexOf(b.task_id))[0] ?? null;
 }
 
 export function batchProgress(tasks, batch) {

@@ -207,3 +207,36 @@ def test_swap_device_changes_only_remaining_rows(dataset):
     sheet = load_workbook(dataset[0])["Capture"]
     assert [sheet[f"{c}2"].value for c in "FG"] == ["Android", "Pixel"]  # DONE row untouched
     assert [sheet[f"{c}4"].value for c in "FG"] == ["iOS", "iPhone 15"]  # TO DO row swapped
+
+
+def test_skip_back_focus_and_undo(dataset):
+    with TestClient(create_app()) as client:
+        open_client(client, dataset)
+        url = "/api/batches/batch_10/current"
+        index = lambda data: data["task"]["unique_capture_index"]
+        first = client.get(url).json()["task"]
+        # Skip leaves the row TO DO and sends it to the back of the queue; when all are skipped the oldest skip returns.
+        skipped = client.post(f"/api/tasks/{first['task_id']}/skip", json={"batch": "batch_10"}).json()
+        assert index(skipped) == "002" and skipped["progress"]["pending"] == 3
+        second = skipped["task"]
+        third =client.post(f"/api/tasks/{second['task_id']}/skip", json={"batch": "batch_10"}).json()["task"]
+        assert third["unique_capture_index"] == "003" and not third["skipped"]
+        again = client.post(f"/api/tasks/{third['task_id']}/skip", json={"batch": "batch_10"}).json()
+        assert index(again) == "001" and again["task"]["skipped"]
+        # Back = focus on any task of the filtered set; unknown ids are 404.
+        assert index(client.get(url + f"?focus={third['task_id']}").json()) == "003"
+        assert client.get(url + "?focus=nope").status_code == 404
+        assert client.get(url + f"?focus={second['task_id']}&capture_device={equipment_key('Android', 'Pixel')}").status_code == 404
+        # Complete, then undo the mistake: back to TO DO, timestamp cleared, shown again.
+        done = client.post(f"/api/tasks/{first['task_id']}/complete", json={"batch": "batch_10", "revision": first["revision"]})
+        assert done.status_code == 200 and done.json()["progress"]["done"] == 1
+        assert client.post(f"/api/tasks/{first['task_id']}/skip", json={"batch": "batch_10"}).status_code == 409
+        revision = client.get(url + f"?focus={first['task_id']}").json()["task"]["revision"]
+        assert client.post(f"/api/tasks/{first['task_id']}/undo", json={"batch": "batch_10", "revision": "old"}).status_code == 409
+        undone = client.post(f"/api/tasks/{first['task_id']}/undo", json={"batch": "batch_10", "revision": revision}).json()
+        assert index(undone) == "001" and undone["task"]["status"] == "TO DO" and undone["task"]["timestamp"] is None
+        assert undone["progress"]["done"] == 0
+        # Idempotent on a TO DO row.
+        assert client.post(f"/api/tasks/{first['task_id']}/undo", json={"batch": "batch_10", "revision": "x"}).status_code == 200
+    sheet = load_workbook(dataset[0])["Capture"]
+    assert [sheet["K2"].value, sheet["L2"].value] == ["TO DO", None]

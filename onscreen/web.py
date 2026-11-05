@@ -63,6 +63,12 @@ class Complete(BaseModel):
     filters: Filters = Field(default_factory=Filters)
 
 
+class Skip(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    batch: str
+    filters: Filters = Field(default_factory=Filters)
+
+
 class SwapDevice(BaseModel):
     model_config = ConfigDict(extra="forbid")
     batch: str
@@ -151,14 +157,24 @@ def create_app():
             return project.info()
 
     @app.get("/api/batches/{batch}/current")
-    def current(batch: str, capture_device: str = "", replay_screen: str = ""):
+    def current(batch: str, capture_device: str = "", replay_screen: str = "", focus: str = ""):
         with guard:
-            return active().current(batch, {"capture_device": capture_device, "replay_screen": replay_screen})
+            return active().current(batch, {"capture_device": capture_device, "replay_screen": replay_screen}, focus or None)
 
     @app.post("/api/tasks/{task_id}/complete")
     def complete(task_id: str, settings: Complete):
         with guard:
             return active().complete(task_id, settings.batch, settings.revision, settings.filters.model_dump())
+
+    @app.post("/api/tasks/{task_id}/skip")
+    def skip(task_id: str, settings: Skip):
+        with guard:
+            return active().skip(task_id, settings.batch, settings.filters.model_dump())
+
+    @app.post("/api/tasks/{task_id}/undo")
+    def undo(task_id: str, settings: Complete):
+        with guard:
+            return active().undo(task_id, settings.batch, settings.revision, settings.filters.model_dump())
 
     @app.post("/api/devices/swap")
     def swap_device(settings: SwapDevice):
